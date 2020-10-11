@@ -57,7 +57,7 @@ TO-DO:
 //Timing values
 uint16_t MOIST_TIME = 4000; //time to wet hands
 uint16_t PAUSE_TIME = 1500; //dwell time to prevent soap from falling
-uint16_t SOAP_TIME = 5000; //time to soap hands
+uint16_t SOAP_TIME = 3000; //time to soap hands
 uint16_t RUBBING_TIME = 20000; //time to rub hands
 uint16_t WASHING_TIME = 18000; //time to wash away soap and dirt!
 uint16_t ENDING_TIME = 7500; //time to prevent incorrect input after wash
@@ -113,13 +113,22 @@ bool timersButtonFlag=false;
 bool timersAdvanceStep=false;
 uint8_t timersStep=0;
 
+void firstEEPROMPROG(){
+  EEPROM.write(0,MOIST_TIME);
+  //EEPROM.write(2,PAUSE_TIME);
+  EEPROM.write(4,SOAP_TIME);
+  EEPROM.write(6,RUBBING_TIME);
+  EEPROM.write(8,WASHING_TIME);
+  //EEPROM.write(10,ENDING_TIME);
+}
+
 void readEEPROM(){
   EEPROM.read(0,&MOIST_TIME);
-  EEPROM.read(2,&PAUSE_TIME);
+  //EEPROM.read(2,&PAUSE_TIME);
   EEPROM.read(4,&SOAP_TIME);
   EEPROM.read(6,&RUBBING_TIME);
   EEPROM.read(8,&WASHING_TIME);
-  EEPROM.read(10,&ENDING_TIME);
+  //EEPROM.read(10,&ENDING_TIME);
 }
 
 void setup() {
@@ -130,11 +139,13 @@ void setup() {
   pinMode(GLOBAL_BUTTON_IN,INPUT_PULLUP);
   pinMode(WATER_OUT,OUTPUT);
   pinMode(SOAP_OUT,OUTPUT);
+  pinMode(DRYER_OUT,OUTPUT);
 
   pinMode(SOAP_STEP_INDICATOR,OUTPUT);
   pinMode(MOIST_STEP_INDICATOR,OUTPUT);
   pinMode(RUBBING_STEP_INDICATOR,OUTPUT);
   pinMode(WASHING_STEP_INDICATOR,OUTPUT);
+  pinMode(DRYING_STEP_INDICATOR,OUTPUT);
 
 
   //IR Circuit startup
@@ -157,6 +168,7 @@ void setup() {
 
   timerAdjustmentRoutine(); //if global button is pressed, timer adjustment mode is entered
 
+  //firstEEPROMPROG(); //only activate on new microcontrollers
   readEEPROM();
 
 }
@@ -172,7 +184,7 @@ void loop() {
       inhibitSensor=true;
       lastForceInState=currentForceInState; //store current state for future comparison
       sMachineStateStorage++; //increment stateMachine by 1
-      if(sMachineStateStorage>=5)sMachineStateStorage=0; //reset value if it overflows
+      if(sMachineStateStorage>=6)sMachineStateStorage=0; //reset value if it overflows
     }else if(currentForceInState){
       lastForceInState=currentForceInState; //reset state if onbutton is not pressed
     }
@@ -198,6 +210,8 @@ stateMachineTimeTrack=millis();
       //Write all outputs to LOW to ensure level
       digitalWrite(WATER_OUT,LOW);
       digitalWrite(SOAP_OUT,LOW);
+      digitalWrite(DRYER_OUT,LOW);
+      digitalWrite(DRYING_STEP_INDICATOR,LOW);
 
       once6=false; //reset last washing flag
 
@@ -274,11 +288,14 @@ stateMachineTimeTrack=millis();
       break;
     case 6:
       once5=false;
+      digitalWrite(WASHING_STEP_INDICATOR,LOW);
+      digitalWrite(DRYING_STEP_INDICATOR,HIGH);
       if(!once6){
         once6=true; //trigger flag to prevent more executions
+        digitalWrite(DRYER_OUT,HIGH);
         noActionTimer=stateMachineTimeTrack;//register time
       }else if(stateMachineTimeTrack-noActionTimer>=ENDING_TIME){
-        digitalWrite(WASHING_STEP_INDICATOR,LOW);
+        digitalWrite(DRYER_OUT,LOW);
         sMachineStateStorage=0;
         inhibitSensor=false; //enable the sensor again
       }
@@ -408,28 +425,28 @@ void timerAdjustmentRoutine(){  //this function executes in the setup code, if t
       case 0: //record MOIST_TIME
         digitalWrite(MOIST_STEP_INDICATOR,HIGH);
         digitalWrite(WASHING_STEP_INDICATOR,LOW);
-        MOIST_TIME = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,30000);
+        MOIST_TIME = map(analogRead(GLOBAL_ANALOG_IN),0,4095,30000,0);
         EEPROM.write(0,MOIST_TIME);
         timersAdvanceStep=false;
         break;
       case 1: //record SOAP_TIME
         digitalWrite(SOAP_STEP_INDICATOR,HIGH);
         digitalWrite(MOIST_STEP_INDICATOR,LOW);
-        SOAP_TIME = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,30000);
+        SOAP_TIME = map(analogRead(GLOBAL_ANALOG_IN),0,4095,30000,0);
         EEPROM.write(4,SOAP_TIME);
         timersAdvanceStep=false;
         break;
       case 2: //record RUBBING_TIME
         digitalWrite(RUBBING_STEP_INDICATOR,HIGH);
         digitalWrite(SOAP_STEP_INDICATOR,LOW);
-        RUBBING_TIME = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,30000);
+        RUBBING_TIME = map(analogRead(GLOBAL_ANALOG_IN),0,4095,30000,0);
         EEPROM.write(6,RUBBING_TIME);
         timersAdvanceStep=false;
         break;
       case 3: //record WASHING_TIME
         digitalWrite(WASHING_STEP_INDICATOR,HIGH);
         digitalWrite(RUBBING_STEP_INDICATOR,LOW);
-        WASHING_TIME = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,30000);
+        WASHING_TIME = map(analogRead(GLOBAL_ANALOG_IN),0,4095,30000,0);
         EEPROM.write(8,WASHING_TIME);
         timersAdvanceStep=false;
         break;
@@ -464,7 +481,7 @@ void timerAdjustmentRoutine(){  //this function executes in the setup code, if t
 
     if(millis()%1000==0){
       Serial.print("Read: ");
-      Serial.println(map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,30000));
+      Serial.println(map(analogRead(GLOBAL_ANALOG_IN),0,4095,30000,0));
     }
 
     //eeprom write stage
