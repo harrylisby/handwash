@@ -21,7 +21,7 @@ Extra. Reset cycle if nothing happens for more than 30 seconds
   2017 - 11 - 10
 TO-DO:
   >> Better timing adjustment method
-  >> Extra timing step between moist and soap - WIP
+  >> Extra timing step between moist and soap - Version 1 implemented
   >> Save timing adjustment into eeprom - Version 1 implemented
 */
 
