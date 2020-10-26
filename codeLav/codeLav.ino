@@ -93,6 +93,7 @@ int16_t counter = 0;
 int16_t preRead = 0;
 int16_t afterRead = 0;
 int16_t IR_SENSITIVITY = 1000;
+int16_t globalDiff = 0;
 int32_t timer = 0;
 int32_t nonMapTimer,nonMapIR_SENSITIVITY;
 
@@ -245,11 +246,11 @@ void setup() {
    display.display();
    delay(2000);
 
-   display.clearDisplay();
-   display.setCursor(0,0);
-   display.println("Coloque su  mano en el sensor");
-   display.display();
-   delay(2000);
+   // display.clearDisplay();
+   // display.setCursor(0,0);
+   // display.println("Coloque su  mano en el sensor");
+   // display.display();
+   // delay(2000);
 
 
 
@@ -297,6 +298,19 @@ stateMachineTimeTrack=millis();
       digitalWrite(SOAP_OUT,LOW);
       digitalWrite(DRYER_OUT,LOW);
       digitalWrite(DRYING_STEP_INDICATOR,LOW);
+
+      display.clearDisplay();
+      display.setTextSize(2);
+      display.setCursor(0,0);
+      display.print("ESPERA");
+      display.setTextSize(1);
+      display.setCursor(0,57);
+      display.print("R: ");
+      display.print(globalDiff);
+      display.setCursor(64,57);
+      display.print("S: ");
+      display.print(IR_SENSITIVITY);
+      display.display();
 
       once6=false; //reset last washing flag
 
@@ -394,8 +408,9 @@ void IR_SENSOR(){
   if((mainTime-adjTimeLast)>ADJ_SPD){ //Ejecuta cada ADJ_SPD milisegundos
     adjTimeLast=mainTime;
     IR_SENSITIVITY = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,4095);
-    Serial.print("IR_SENSITIVITY: ");
-    Serial.println(IR_SENSITIVITY);
+    // Serial.print("IR_SENSITIVITY: ");
+    // Serial.println(IR_SENSITIVITY);
+    //display.clearDisplay();
     //IR_SENSITIVITY = nonMapIR_SENSITIVITY/5;//map(nonMapIR_SENSITIVITY,0,1023,0,1023);
     //nonMapTimer = analogRead(TIME_ADJ);
     //timer = map(nonMapTimer,0,1023,ON_TIME,0);
@@ -466,11 +481,9 @@ int16_t pulsing(){
   digitalWrite(IR_OUT, LOW);
   delayMicroseconds(IR_READ_DELAY);
 
-
-
-  Serial.print("Difference: ");
-  Serial.println(difference_calc);
-
+  // Serial.print("Difference: ");
+  // Serial.println(difference_calc);
+  globalDiff=difference_calc;
   return difference_calc;
 }
 
@@ -515,7 +528,7 @@ void timerAdjustmentRoutine(){  //this function executes in the setup code, if t
         display.setCursor(0,0);
         display.print("T.MOJADO:");
         display.setCursor(0,32);
-        display.print(MOIST_TIME);
+        display.print(MOIST_TIME); display.print("ms");
         display.display();
 
         EEPROM.write(0,MOIST_TIME);
@@ -529,7 +542,7 @@ void timerAdjustmentRoutine(){  //this function executes in the setup code, if t
         display.setCursor(0,0);
         display.print("T.JABON:");
         display.setCursor(0,32);
-        display.print(SOAP_TIME);
+        display.print(SOAP_TIME); display.print("ms");
         display.display();
         EEPROM.write(4,SOAP_TIME);
         timersAdvanceStep=false;
@@ -542,7 +555,7 @@ void timerAdjustmentRoutine(){  //this function executes in the setup code, if t
         display.setCursor(0,0);
         display.print("T.ENJUAGUE:");
         display.setCursor(0,32);
-        display.print(RUBBING_TIME);
+        display.print(RUBBING_TIME); display.print("ms");
         display.display();
         EEPROM.write(6,RUBBING_TIME);
         timersAdvanceStep=false;
@@ -555,7 +568,7 @@ void timerAdjustmentRoutine(){  //this function executes in the setup code, if t
         display.setCursor(0,0);
         display.print("T.LAVADO:");
         display.setCursor(0,32);
-        display.print(WASHING_TIME);
+        display.print(WASHING_TIME); display.print("ms");
         display.display();
         EEPROM.write(8,WASHING_TIME);
         timersAdvanceStep=false;
