@@ -283,9 +283,28 @@ void loop() {
 
 }
 
+
+#define BARPOS_X 10
+#define BARPOS_Y 40
+#define BAR_WIDTH 110
+#define BAR_HEIGHT 12
+
+// void drawStepStatus(string stepTitle, uint32_t stepTimer, uint32_t stepSetTime){
+//   display.clearDisplay();
+//   display.setTextColor(WHITE);
+//   display.setTextSize(2);
+//   display.setCursor(0,0);
+//   display.print(stepTitle);
+//   display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+//   caseTracker = BAR_WIDTH*(stateMachineTimeTrack-stepTimer)/(stepSetTime);
+//   display.drawRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+//   display.display();
+// }
+
 void stateMachine(){
 uint8_t cState = sMachineStateStorage;
 stateMachineTimeTrack=millis();
+uint32_t caseTracker = 0;
   switch(cState){
     //flash LEDs depending on corresponding state
     case 0:
@@ -302,7 +321,7 @@ stateMachineTimeTrack=millis();
       display.clearDisplay();
       display.setTextSize(2);
       display.setCursor(0,0);
-      display.print("ESPERA");
+      display.print("COLOCAR \nMANOS PARA\nINICIAR");
       display.setTextSize(1);
       display.setCursor(0,57);
       display.print("R: ");
@@ -319,6 +338,7 @@ stateMachineTimeTrack=millis();
       //1. Moist hands with a bit of water in WATER_OUT
       digitalWrite(MOIST_STEP_INDICATOR,HIGH); //turn on step LED
       digitalWrite(WASHING_STEP_INDICATOR,LOW); //ensure last LED is always off
+
       if(!once1){
         once1=true; //trigger flag to prevent more executions
         digitalWrite(WATER_OUT,HIGH); //turn on water output
@@ -329,12 +349,26 @@ stateMachineTimeTrack=millis();
       }
       //wait for next input...
 
+      display.clearDisplay();
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(16,23);
+      display.print("1.MOJADO");
+      display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-moistTimer)/(MOIST_TIME),0,BAR_WIDTH);
+      display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      display.display();
+
+      //drawStepStatus("1.MOJADO",moistTimer,100);
+
+
       break;
     case 2:
       //2. Wait to prevent washing down the soap
       once1=false; //reset moist flag
       digitalWrite(SOAP_STEP_INDICATOR,LOW);
       digitalWrite(MOIST_STEP_INDICATOR,LOW);
+
       if(!once2){
         once2=true; //trigger flag to prevent more executions
         pauseTimer=stateMachineTimeTrack;//register time
@@ -342,6 +376,17 @@ stateMachineTimeTrack=millis();
         sMachineStateStorage++;
       }
       //wait for next input...
+
+      display.clearDisplay();
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(16,23);
+      display.print("x.PAUSA");
+      display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-pauseTimer)/(PAUSE_TIME),0,BAR_WIDTH);
+      display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      display.display();
+
       break;
     case 3:
       //3. Dispense liquid soap in SOAP_OUT
@@ -357,6 +402,17 @@ stateMachineTimeTrack=millis();
         sMachineStateStorage++;
       }
       //wait for next input...
+
+      display.clearDisplay();
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(18,23);
+      display.print("2.JABON");
+      display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-soapTimer)/(SOAP_TIME),0,BAR_WIDTH);
+      display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      display.display();
+
       break;
     case 4:
       //4. Wait until 20 seconds of hand rubbing is done (flash led if input is done in this timeframe)
@@ -369,6 +425,17 @@ stateMachineTimeTrack=millis();
       }else if(stateMachineTimeTrack-rubbingTimer>=RUBBING_TIME){
         sMachineStateStorage++;
       }
+
+      display.clearDisplay();
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(14,23);
+      display.print("3.LAVADO");
+      display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-rubbingTimer)/(RUBBING_TIME),0,BAR_WIDTH);
+      display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      display.display();
+
       break;
     case 5:
       //5. Open WATER_OUT to wash out soap for 15s
@@ -384,6 +451,17 @@ stateMachineTimeTrack=millis();
         sMachineStateStorage++;
         //inhibitSensor=false; //enable the sensor again
       }
+
+      display.clearDisplay();
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(6,23);
+      display.print("4.ENJUAGUE");
+      display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-washingTimer)/(WASHING_TIME),0,BAR_WIDTH);
+      display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      display.display();
+
       break;
     case 6:
       once5=false;
@@ -398,6 +476,17 @@ stateMachineTimeTrack=millis();
         sMachineStateStorage=0;
         inhibitSensor=false; //enable the sensor again
       }
+
+      display.clearDisplay();
+      display.setTextColor(WHITE);
+      display.setTextSize(2);
+      display.setCursor(16,23);
+      display.print("5.SECADO");
+      display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-noActionTimer)/(ENDING_TIME),0,BAR_WIDTH);
+      display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+      display.display();
+
       break;
   }
 }
