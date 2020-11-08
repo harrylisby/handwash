@@ -316,8 +316,8 @@ void loop() {
     timeTrackPrevious=timeTrack; //update last tracking time value
   }
 
-  if(!inhibitSensor)IR_SENSOR(); //this is activated only when inhibitSensor is set to false;
-  //if(!inhibitSensor)IR_SENSOR_MA_ALGORITHM(); //this is activated only when inhibitSensor is set to false;
+  //if(!inhibitSensor)IR_SENSOR(); //this is activated only when inhibitSensor is set to false;
+  if(!inhibitSensor)IR_SENSOR_MA_ALGORITHM(); //this is activated only when inhibitSensor is set to false;
 
 }
 
