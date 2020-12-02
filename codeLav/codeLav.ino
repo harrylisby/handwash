@@ -66,7 +66,7 @@ uint16_t ENDING_TIME = 7500; //time to prevent incorrect input after wash
 #define IR_OUT   PB12   //IR LED output2
 //#define RLAY_OUT PB13   //Relay ON/OFF output
 #define ANLG_IN  PB1  //Reads input photodiode
-#define GLOBAL_ANALOG_IN PA0  //IR_SENSITIVITY adjustment pin
+#define GLOBAL_ANALOG_IN PA0  //IR_SENSITIVITY_READ adjustment pin
 #define GLOBAL_BUTTON_IN PA8  //IR FORCE input
 //#define TIME_ADJ A3  //Output ON time
 #define DETECT_MODE PB13 //detect on interruption by default
@@ -92,10 +92,10 @@ bool butStat=true;
 int16_t counter = 0;
 int16_t preRead = 0;
 int16_t afterRead = 0;
-int16_t IR_SENSITIVITY = 1000;
+int16_t IR_SENSITIVITY_READ = 1000;
 int16_t globalDiff = 0;
 int32_t timer = 0;
-int32_t nonMapTimer,nonMapIR_SENSITIVITY;
+int32_t nonMapTimer,nonMapIR_SENSITIVITY_READ;
 
 uint8_t sMachineStateStorage = 0; //saves current value for state machine
 
@@ -130,6 +130,12 @@ Adafruit_SSD1306 display(OLED_RESET);
 #define BARPOS_Y 40
 #define BAR_WIDTH 110
 #define BAR_HEIGHT 12
+
+
+uint16_t movingAverageMatrix[20] = {10000}; //tracks the last 20 values
+uint16_t movingAverageResult = 0; //saves the average of the last 20 values
+uint8_t mAPos = 0;
+bool firstTimeMA=true;
 
 const unsigned char lisbyBMP [] PROGMEM = {
 	// 'bitmap, 128x64px
@@ -359,11 +365,15 @@ uint32_t caseTracker = 0;
       display.print("COLOCAR \nMANOS PARA\nINICIAR");
       display.setTextSize(1);
       display.setCursor(0,57);
-      display.print("R: ");
+      display.print("R:");
+      //display.print(movingAverageMatrix[mAPos]);
       display.print(globalDiff);
-      display.setCursor(64,57);
-      display.print("S: ");
-      display.print(IR_SENSITIVITY);
+      display.setCursor(45,57);
+      display.print("S:");
+      display.print(IR_SENSITIVITY_READ+movingAverageResult);
+      display.setCursor(85,57);
+      display.print("A:");
+      display.print(movingAverageResult);
       display.display();
 
       once6=false; //reset last washing flag
@@ -531,7 +541,7 @@ void IR_SENSOR(){
 
   if((mainTime-adjTimeLast)>ADJ_SPD){ //Ejecuta cada ADJ_SPD milisegundos
     adjTimeLast=mainTime;
-    IR_SENSITIVITY = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,4095);
+    IR_SENSITIVITY_READ = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,4095);
     butStat = digitalRead(GLOBAL_BUTTON_IN);  //read GLOBAL_BUTTON_IN input button
   }
 
@@ -542,7 +552,7 @@ void IR_SENSOR(){
 
     if(detect_algorithm_flag){ //Jumper in pos1
       for (int i = 0; i < IR_PULSES; i++) {
-        if(pulsing()>IR_SENSITIVITY){ //Detects if the pulse is higher than sensitivity
+        if(pulsing()>IR_SENSITIVITY_READ){ //Detects if the pulse is higher than sensitivity
           counter++;
           if(counter>IR_PULSES)counter=0;
         }else{
@@ -556,7 +566,7 @@ void IR_SENSOR(){
       }
     }else if(!detect_algorithm_flag){ //Jumper in pos2
       for (int i = 0; i < IR_PULSES; i++) {
-        if(pulsing()<IR_SENSITIVITY){  //detects if pulse is lower than sensitivity
+        if(pulsing()<IR_SENSITIVITY_READ){  //detects if pulse is lower than sensitivity
           counter++;
           if(counter>IR_PULSES)counter=0;
         }else{
@@ -572,17 +582,12 @@ void IR_SENSOR(){
   }
 }
 
-uint16_t movingAverageMatrix[20] = {0}; //tracks the last 20 values
-uint16_t movingAverageResult = 0; //saves the average of the last 20 values
-uint8_t mAPos = 0;
-bool firstTimeMA=true;
-
 void IR_SENSOR_MA_ALGORITHM(){
   mainTime=millis();
 
   if((mainTime-adjTimeLast)>ADJ_SPD){ //Ejecuta cada ADJ_SPD milisegundos
     adjTimeLast=mainTime;
-    IR_SENSITIVITY = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,4095);
+    IR_SENSITIVITY_READ = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,4095);
     butStat = digitalRead(GLOBAL_BUTTON_IN);  //read GLOBAL_BUTTON_IN input button
   }
 
@@ -590,27 +595,27 @@ void IR_SENSOR_MA_ALGORITHM(){
     mainTimeLast=mainTime;
     bool detect_algorithm_flag = digitalRead(DETECT_MODE);
 
-    if(firstTimeMA){
-      for(int i = 0; i < 20; i++){
-        movingAverageMatrix[i]=pulsing();
-        delay(100);
-      }
-      firstTimeMA=false;
-    }
+    // if(firstTimeMA){
+    //   for(int i = 0; i < 20; i++){
+    //     movingAverageMatrix[i]=pulsing();
+    //     delay(100);
+    //   }
+    //   firstTimeMA=false;
+    // }
+    mAPos++; //increase moving average cell
+    if(mAPos==20)mAPos=0;
 
-    movingAverageMatrix[mAPos] = pulsing();
+    movingAverageMatrix[mAPos] = globalDiff;
 
-    if(mAPos>=20)mAPos=0;
-
-    uint32_t sumForAverage = 0;
+    uint16_t sumForAverage = 0;
     for(int i = 0; i < 20; i++){
-      sumForAverage = sumForAverage + movingAverageMatrix[i];
+      sumForAverage += movingAverageMatrix[i];
     }
     movingAverageResult=sumForAverage/20;
 
     if(detect_algorithm_flag){ //Jumper in pos1: reflection algoritm
       for (int i = 0; i < IR_PULSES; i++) {
-        if(movingAverageMatrix[mAPos]>IR_SENSITIVITY){ //Detects if the pulse is higher than sensitivity
+        if(pulsing()>(IR_SENSITIVITY_READ+movingAverageResult)){ //Detects if the pulse is higher than sensitivity
           counter++;
           if(counter>IR_PULSES)counter=0;
         }else{
@@ -624,7 +629,7 @@ void IR_SENSOR_MA_ALGORITHM(){
       }
     }else if(!detect_algorithm_flag){ //Jumper in pos2: detection algorithm
       for (int i = 0; i < IR_PULSES; i++) {
-        if(movingAverageMatrix[mAPos]<IR_SENSITIVITY){  //detects if pulse is lower than sensitivity
+        if(pulsing()<(IR_SENSITIVITY_READ+movingAverageResult)){  //detects if pulse is lower than sensitivity
           counter++;
           if(counter>IR_PULSES)counter=0;
         }else{
@@ -637,7 +642,6 @@ void IR_SENSOR_MA_ALGORITHM(){
         counter=0;
       }
     }
-    mAPos++; //increase moving average cell
   }
 }
 
@@ -653,22 +657,13 @@ int16_t pulsing(){
   digitalWrite(READ_CAL_DEBUG_OUT,LOW);
   #endif //READ_CAL_DEBUG
 
-  int difference_calc = abs(preRead-analogRead(ANLG_IN));
+  uint16_t difference_calc = analogRead(ANLG_IN)-preRead;
 
   digitalWrite(IR_OUT, LOW);
   delayMicroseconds(IR_READ_DELAY);
 
-  // Serial.print("Difference: ");
-  // Serial.println(difference_calc);
   globalDiff=difference_calc;
   return difference_calc;
-}
-
-void indicate_out(){
-  // digitalWrite(RLAY_OUT,HIGH);
-  // delay(50);
-  // digitalWrite(RLAY_OUT,LOW);
-  // delay(50);
 }
 
 void timerAdjustmentRoutine(){  //this function executes in the setup code, if the GLOBAL_BUTTON_IN button is pressed, this is executed
