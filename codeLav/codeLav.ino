@@ -27,7 +27,7 @@ TO-DO:
 
 #include <EEPROM.h> //EEPROM library for STM32duino
 
-
+#define SWVERSION "1.0.0"
 #define BOARD_V10 //1.0 board version
 
 #ifdef BOARD_V10
@@ -282,7 +282,7 @@ void setup() {
    display.println("LISBY INDUSTRIAL");
    //display.setTextColor(BLACK, WHITE); // 'inverted' text
    display.setCursor(21,10);
-   display.println("Inicializando");
+   display.println("SW: "+SWVERSION);
    display.setTextSize(2);
    display.setTextColor(WHITE);
    display.setCursor(20,32);
