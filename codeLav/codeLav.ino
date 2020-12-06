@@ -27,7 +27,7 @@ TO-DO:
 
 #include <EEPROM.h> //EEPROM library for STM32duino
 
-#define SWVERSION "1.0.0"
+String SWVERSION = "1.0.0"; //Change on every new release - stable versions
 #define BOARD_V10 //1.0 board version
 
 #ifdef BOARD_V10
@@ -60,7 +60,8 @@ uint16_t PAUSE_TIME = 1500; //dwell time to prevent soap from falling
 uint16_t SOAP_TIME = 3000; //time to soap hands
 uint16_t RUBBING_TIME = 20000; //time to rub hands
 uint16_t WASHING_TIME = 18000; //time to wash away soap and dirt!
-uint16_t ENDING_TIME = 7500; //time to prevent incorrect input after wash
+uint16_t DRYING_TIME = 7500; //time to run the dryer
+uint16_t ENDING_TIME = 5000;//time to prevent incorrect input after wash
 
 //IR sensor related variables
 #define IR_OUT   PB12   //IR LED output2
@@ -106,9 +107,9 @@ uint32_t timeTrackPrevious = 0;
 bool currentForceInState=1,lastForceInState=1;
 bool sensorDetectFlag = 0, inhibitSensor=0;
 
-bool once1,once2,once3,once4,once5,once6;
+bool once1,once2,once3,once4,once5,once6,once7;
 
-uint32_t stateMachineTimeTrack,moistTimer,pauseTimer,soapTimer,rubbingTimer,washingTimer,noActionTimer;
+uint32_t stateMachineTimeTrack,moistTimer,pauseTimer,soapTimer,rubbingTimer,washingTimer,dryingTimer,endingTimer;
 
 bool timersButtonFlag=false;
 bool timersAdvanceStep=false;
@@ -211,7 +212,7 @@ void firstEEPROMPROG(){
   EEPROM.write(4,SOAP_TIME);
   EEPROM.write(6,RUBBING_TIME);
   EEPROM.write(8,WASHING_TIME);
-  //EEPROM.write(10,ENDING_TIME);
+  EEPROM.write(10,DRYING_TIME);
 }
 
 void readEEPROM(){
@@ -220,7 +221,7 @@ void readEEPROM(){
   EEPROM.read(4,&SOAP_TIME);
   EEPROM.read(6,&RUBBING_TIME);
   EEPROM.read(8,&WASHING_TIME);
-  //EEPROM.read(10,&ENDING_TIME);
+  EEPROM.read(10,&DRYING_TIME);
 }
 
 void setup() {
@@ -426,7 +427,7 @@ uint32_t caseTracker = 0;
       display.setTextColor(WHITE);
       display.setTextSize(2);
       display.setCursor(16,23);
-      display.print("x.PAUSA");
+      display.print("2.PAUSA");
       display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
       caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-pauseTimer)/(PAUSE_TIME),0,BAR_WIDTH);
       display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
@@ -452,7 +453,7 @@ uint32_t caseTracker = 0;
       display.setTextColor(WHITE);
       display.setTextSize(2);
       display.setCursor(18,23);
-      display.print("2.JABON");
+      display.print("3.JABON");
       display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
       caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-soapTimer)/(SOAP_TIME),0,BAR_WIDTH);
       display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
@@ -475,7 +476,7 @@ uint32_t caseTracker = 0;
       display.setTextColor(WHITE);
       display.setTextSize(2);
       display.setCursor(14,23);
-      display.print("3.LAVADO");
+      display.print("4.LAVADO");
       display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
       caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-rubbingTimer)/(RUBBING_TIME),0,BAR_WIDTH);
       display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
@@ -501,7 +502,7 @@ uint32_t caseTracker = 0;
       display.setTextColor(WHITE);
       display.setTextSize(2);
       display.setCursor(6,23);
-      display.print("4.ENJUAGUE");
+      display.print("5.ENJUAGUE");
       display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
       caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-washingTimer)/(WASHING_TIME),0,BAR_WIDTH);
       display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
@@ -515,24 +516,47 @@ uint32_t caseTracker = 0;
       if(!once6){
         once6=true; //trigger flag to prevent more executions
         digitalWrite(DRYER_OUT,HIGH);
-        noActionTimer=stateMachineTimeTrack;//register time
-      }else if(stateMachineTimeTrack-noActionTimer>=ENDING_TIME){
+        dryingTimer=stateMachineTimeTrack;//register time
+      }else if(stateMachineTimeTrack-dryingTimer>=DRYING_TIME){
         digitalWrite(DRYER_OUT,LOW);
-        sMachineStateStorage=0;
-        inhibitSensor=false; //enable the sensor again
+        sMachineStateStorage++;
+        //inhibitSensor=false; //enable the sensor again
       }
 
       display.clearDisplay();
       display.setTextColor(WHITE);
       display.setTextSize(2);
       display.setCursor(16,23);
-      display.print("5.SECADO");
+      display.print("6.SECADO");
       display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
-      caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-noActionTimer)/(ENDING_TIME),0,BAR_WIDTH);
+      caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-dryingTimer)/(DRYING_TIME),0,BAR_WIDTH);
       display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
       display.display();
 
       break;
+		case 7:
+			once6=false;
+			digitalWrite(WASHING_STEP_INDICATOR,HIGH);
+			digitalWrite(DRYING_STEP_INDICATOR,HIGH);
+			if(!once7){
+				once7=true; //trigger flag to prevent more executions
+				endingTimer=stateMachineTimeTrack;//register time
+			}else if(stateMachineTimeTrack-endingTimer>=ENDING_TIME){
+				sMachineStateStorage=0;
+				inhibitSensor=false; //enable the sensor again
+			}
+
+			display.clearDisplay();
+			display.setTextColor(WHITE);
+			display.setTextSize(2);
+			display.setCursor(16,23);
+			display.print("7.LISTO!");
+			display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+			caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-endingTimer)/(ENDING_TIME),0,BAR_WIDTH);
+			display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
+			display.display();
+
+			break;
   }
 }
 
@@ -745,7 +769,20 @@ void timerAdjustmentRoutine(){  //this function executes in the setup code, if t
         EEPROM.write(8,WASHING_TIME);
         timersAdvanceStep=false;
         break;
-      case 4:
+			case 4: //record DRYING_TIME
+        digitalWrite(WASHING_STEP_INDICATOR,HIGH);
+        digitalWrite(RUBBING_STEP_INDICATOR,HIGH);
+        DRYING_TIME = map(analogRead(GLOBAL_ANALOG_IN),0,4095,30000,0);
+        display.clearDisplay();
+        display.setCursor(0,0);
+        display.print("T.SECADO:");
+        display.setCursor(0,32);
+        display.print(DRYING_TIME); display.print("ms");
+        display.display();
+        EEPROM.write(10,DRYING_TIME);
+        timersAdvanceStep=false;
+        break;
+      case 5:
         timersButtonFlag=false; //get out of timer adjustment mode
         for(int x = 0; x<2; x++){ //indicate with flashy lights and overkill animation lol
           digitalWrite(MOIST_STEP_INDICATOR,HIGH);
