@@ -27,7 +27,7 @@ TO-DO:
 
 #include <EEPROM.h> //EEPROM library for STM32duino
 
-String SWVERSION = "1.0.0"; //Change on every new release - stable versions
+String SWVERSION = "Pre - 1.0.1"; //Change on every new release - stable versions
 #define BOARD_V10 //1.0 board version
 
 #ifdef BOARD_V10
@@ -302,6 +302,16 @@ void setup() {
    //firstEEPROMPROG(); //only activate on new microcontrollers
    readEEPROM();
 
+	 digitalWrite(WATER_OUT,LOW);
+   digitalWrite(SOAP_OUT,LOW);
+  digitalWrite(DRYER_OUT,LOW);
+
+   digitalWrite(SOAP_STEP_INDICATOR,LOW);
+   digitalWrite(MOIST_STEP_INDICATOR,LOW);
+   digitalWrite(RUBBING_STEP_INDICATOR,LOW);
+   digitalWrite(WASHING_STEP_INDICATOR,LOW);
+   digitalWrite(DRYING_STEP_INDICATOR,LOW;
+
 }
 
 void loop() {
@@ -315,7 +325,7 @@ void loop() {
       inhibitSensor=true;
       lastForceInState=currentForceInState; //store current state for future comparison
       sMachineStateStorage++; //increment stateMachine by 1
-      if(sMachineStateStorage>=6)sMachineStateStorage=0; //reset value if it overflows
+      if(sMachineStateStorage>=7)sMachineStateStorage=0; //reset value if it overflows
     }else if(currentForceInState){
       lastForceInState=currentForceInState; //reset state if onbutton is not pressed
     }
@@ -359,6 +369,7 @@ uint32_t caseTracker = 0;
       digitalWrite(SOAP_OUT,LOW);
       digitalWrite(DRYER_OUT,LOW);
       digitalWrite(DRYING_STEP_INDICATOR,LOW);
+			digitalWrite(WASHING_STEP_INDICATOR,LOW);
 
       display.clearDisplay();
       display.setTextSize(2);
@@ -808,6 +819,8 @@ void timerAdjustmentRoutine(){  //this function executes in the setup code, if t
         digitalWrite(RUBBING_STEP_INDICATOR,LOW);
         delay(200);
         digitalWrite(WASHING_STEP_INDICATOR,LOW);
+
+				display.clearDisplay();
         break;
     }
 
