@@ -104,6 +104,7 @@ uint32_t mainTime,mainTimeLast,adjTimeLast,offDelay;
 
 uint32_t timeTrack = 0;
 uint32_t timeTrackPrevious = 0;
+uint32_t timeTrackPreviousI2C = 0;
 bool currentForceInState=1,lastForceInState=1;
 bool sensorDetectFlag = 0, inhibitSensor=0;
 
@@ -257,7 +258,19 @@ void setup() {
   // delay(100);
   // digitalWrite(RLAY_OUT,LOW);
 
+	//force all outputs into lowstate
+	digitalWrite(WATER_OUT,LOW);
+	digitalWrite(SOAP_OUT,LOW);
+	digitalWrite(DRYER_OUT,LOW);
+	digitalWrite(SOAP_STEP_INDICATOR,LOW);
+	digitalWrite(MOIST_STEP_INDICATOR,LOW);
+	digitalWrite(RUBBING_STEP_INDICATOR,LOW);
+	digitalWrite(WASHING_STEP_INDICATOR,LOW);
+	digitalWrite(DRYING_STEP_INDICATOR,LOW);
+
   Serial.begin(115200);
+
+	delay(200);
 
   //Display OLED initialization
   display.begin(SSD1306_SWITCHCAPVCC, 0x3C);  // initialize with the I2C addr 0x3D (for the 128x64)
@@ -302,20 +315,19 @@ void setup() {
    //firstEEPROMPROG(); //only activate on new microcontrollers
    readEEPROM();
 
-	 digitalWrite(WATER_OUT,LOW);
-   digitalWrite(SOAP_OUT,LOW);
-  digitalWrite(DRYER_OUT,LOW);
 
-   digitalWrite(SOAP_STEP_INDICATOR,LOW);
-   digitalWrite(MOIST_STEP_INDICATOR,LOW);
-   digitalWrite(RUBBING_STEP_INDICATOR,LOW);
-   digitalWrite(WASHING_STEP_INDICATOR,LOW);
-   digitalWrite(DRYING_STEP_INDICATOR,LOW;
+
 
 }
 
 void loop() {
   timeTrack = millis();
+
+	if(timeTrack-timeTrackPreviousI2C>=5000){
+		//TWCR = 0;
+		Wire.begin();
+		timeTrackPreviousI2C=timeTrack;
+	}
 
   if(timeTrack-timeTrackPrevious>=350){
     currentForceInState=digitalRead(GLOBAL_BUTTON_IN);
