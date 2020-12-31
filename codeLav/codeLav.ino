@@ -27,7 +27,7 @@ TO-DO:
 
 #include <EEPROM.h> //EEPROM library for STM32duino
 
-String SWVERSION = "Pre - 1.0.1"; //Change on every new release - stable versions
+String SWVERSION = "Pre - 1.0.4"; //Change on every new release - stable versions
 #define BOARD_V10 //1.0 board version
 
 #ifdef BOARD_V10
@@ -40,7 +40,7 @@ String SWVERSION = "Pre - 1.0.1"; //Change on every new release - stable version
 #endif
 #ifndef BOARD_V10
 //Washing state machine related variables
-#define IR_IN PB15 //Input from sensor side of the circuit
+//#define IR_IN PB15 //Input from sensor side of the circuit
 //#define GLOBAL_BUTTON_IN PA8//GOTO GLOBAL_BUTTON_IN ... Equivalent to IR_IN, allows for an external input instead of sensor
 #define WATER_OUT PA9  //PA15 board
 #define SOAP_OUT PA10  //PB3 board
@@ -66,7 +66,7 @@ uint16_t ENDING_TIME = 5000;//time to prevent incorrect input after wash
 //IR sensor related variables
 #define IR_OUT   PB12   //IR LED output2
 //#define RLAY_OUT PB13   //Relay ON/OFF output
-#define ANLG_IN  PB1  //Reads input photodiode
+#define ANLG_IR_IN  PB1  //Reads input photodiode
 #define GLOBAL_ANALOG_IN PA0  //IR_SENSITIVITY_READ adjustment pin
 #define GLOBAL_BUTTON_IN PA8  //IR FORCE input
 //#define TIME_ADJ A3  //Output ON time
@@ -78,6 +78,11 @@ uint16_t ENDING_TIME = 5000;//time to prevent incorrect input after wash
 #define READ_CAL_DEBUG_OUT PB14 //this optional input will send a signal during analogRead cycle.
 #endif //READ_CAL_DEBUG
 
+#define DEBUG_PORT_ENABLE
+#ifdef DEBUG_PORT_ENABLE
+#define READ_DEBUG_ENABLE PB15
+#endif //DEBUG_PORT_ENABLE
+
 
 #define ON_TIME 10000   //On time for output pin (in microseconds)
 #define RUN_SPD 400     //Per-cycle time (in microseconds)
@@ -85,7 +90,7 @@ uint16_t ENDING_TIME = 5000;//time to prevent incorrect input after wash
 #define HC_ACT_TMR 200    //define delay to read input
 
 #define TIMER_SCALE 8
-#define IR_READ_DELAY 200
+uint16_t IR_READ_DELAY = 200; //200
 
 #define IR_PULSES 3
 
@@ -138,6 +143,7 @@ uint16_t movingAverageMatrix[20] = {10000}; //tracks the last 20 values
 uint16_t movingAverageResult = 0; //saves the average of the last 20 values
 uint8_t mAPos = 0;
 bool firstTimeMA=true;
+bool autoCalibrating = true;
 
 const unsigned char lisbyBMP [] PROGMEM = {
 	// 'bitmap, 128x64px
@@ -229,7 +235,7 @@ void setup() {
   enableDebugPorts();
 
   //state machine startup
-  pinMode(IR_IN,INPUT_PULLUP);
+  //pinMode(IR_IN,INPUT_PULLUP);
   pinMode(GLOBAL_BUTTON_IN,INPUT_PULLUP);
   pinMode(WATER_OUT,OUTPUT);
   pinMode(SOAP_OUT,OUTPUT);
@@ -241,11 +247,15 @@ void setup() {
   pinMode(WASHING_STEP_INDICATOR,OUTPUT);
   pinMode(DRYING_STEP_INDICATOR,OUTPUT);
 
+	#ifdef DEBUG_PORT_ENABLE
+	pinMode(READ_DEBUG_ENABLE,INPUT_PULLUP);
+	#endif //DEBUG_PORT_ENABLE
+
 
   //IR Circuit startup
   pinMode(IR_OUT,OUTPUT);
 //  pinMode(RLAY_OUT,OUTPUT);
-  //pinMode(ANLG_IN,INPUT);
+  //pinMode(ANLG_IR_IN,INPUT);
   //pinMode(GLOBAL_BUTTON_IN,INPUT_PULLUP); //button input mistaken
   //pinMode(TIME_ADJ,INPUT);
   pinMode(DETECT_MODE,INPUT_PULLUP);
@@ -304,14 +314,6 @@ void setup() {
    display.display();
    delay(2000);
 
-   // display.clearDisplay();
-   // display.setCursor(0,0);
-   // display.println("Coloque su  mano en el sensor");
-   // display.display();
-   // delay(2000);
-
-
-
    //firstEEPROMPROG(); //only activate on new microcontrollers
    readEEPROM();
 
@@ -350,21 +352,6 @@ void loop() {
 
 }
 
-
-// void drawStepStatus(string stepTitle, uint32_t stepTimer, uint32_t stepSetTime){
-//   display.clearDisplay();
-//   display.setTextColor(WHITE);
-//   display.setTextSize(2);
-//   display.setCursor(0,0);
-//   display.print(stepTitle);
-//   display.drawRoundRect(BARPOS_X, BARPOS_Y, BAR_WIDTH, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
-//   caseTracker = BAR_WIDTH*(stateMachineTimeTrack-stepTimer)/(stepSetTime);
-//   display.drawRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
-//   display.display();
-// }
-
-
-
 void stateMachine(){
 uint8_t cState = sMachineStateStorage;
 stateMachineTimeTrack=millis();
@@ -399,6 +386,10 @@ uint32_t caseTracker = 0;
       display.print("A:");
       display.print(movingAverageResult);
       display.display();
+
+			if(autoCalibrating&&(globalDiff<=0)){
+				IR_READ_DELAY+=50;
+			}
 
       once6=false; //reset last washing flag
 
@@ -692,21 +683,25 @@ void IR_SENSOR_MA_ALGORITHM(){
   }
 }
 
+
+
 int16_t pulsing(){
-  preRead = analogRead(ANLG_IN);
-  #ifdef READ_CAL_DEBUG //Debug routine
-  digitalWrite(READ_CAL_DEBUG_OUT,HIGH);
-  #endif //READ_CAL_DEBUG
+  preRead = analogRead(ANLG_IR_IN);
+
   digitalWrite(IR_OUT, HIGH);
+	#ifdef READ_CAL_DEBUG //Debug routine
+	digitalWrite(READ_CAL_DEBUG_OUT,HIGH);
+	#endif //READ_CAL_DEBUG
   delayMicroseconds(IR_READ_DELAY);
 
-  #ifdef READ_CAL_DEBUG //debug routine
-  digitalWrite(READ_CAL_DEBUG_OUT,LOW);
-  #endif //READ_CAL_DEBUG
-
-  uint16_t difference_calc = analogRead(ANLG_IN)-preRead;
+	uint16_t postRead;
+	postRead=analogRead(ANLG_IR_IN)
+  uint16_t difference_calc = postRead-preRead;
 
   digitalWrite(IR_OUT, LOW);
+	#ifdef READ_CAL_DEBUG //debug routine
+	digitalWrite(READ_CAL_DEBUG_OUT,LOW);
+	#endif //READ_CAL_DEBUG
   delayMicroseconds(IR_READ_DELAY);
 
   globalDiff=difference_calc;
