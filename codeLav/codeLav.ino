@@ -27,7 +27,7 @@ TO-DO:
 
 #include <EEPROM.h> //EEPROM library for STM32duino
 
-String SWVERSION = "Pre - 1.0.4"; //Change on every new release - stable versions
+String SWVERSION = "Pre - 1.0.5"; //Change on every new release - stable versions
 #define BOARD_V10 //1.0 board version
 
 #ifdef BOARD_V10
@@ -85,7 +85,7 @@ uint16_t ENDING_TIME = 5000;//time to prevent incorrect input after wash
 
 
 #define ON_TIME 10000   //On time for output pin (in microseconds)
-#define RUN_SPD 400     //Per-cycle time (in microseconds)
+#define RUN_SPD 350     //Per-cycle time (in microseconds)
 #define ADJ_SPD 2000    //register new variables time
 #define HC_ACT_TMR 200    //define delay to read input
 
@@ -683,8 +683,6 @@ void IR_SENSOR_MA_ALGORITHM(){
   }
 }
 
-
-
 int16_t pulsing(){
   preRead = analogRead(ANLG_IR_IN);
 
@@ -695,7 +693,7 @@ int16_t pulsing(){
   delayMicroseconds(IR_READ_DELAY);
 
 	uint16_t postRead;
-	postRead=analogRead(ANLG_IR_IN)
+	postRead=analogRead(ANLG_IR_IN);
   uint16_t difference_calc = postRead-preRead;
 
   digitalWrite(IR_OUT, LOW);
