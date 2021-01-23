@@ -27,7 +27,7 @@ TO-DO:
 
 #include <EEPROM.h> //EEPROM library for STM32duino
 
-String SWVERSION = "Pre - 1.0.5"; //Change on every new release - stable versions
+String SWVERSION = "Pre - 1.0.6"; //Change on every new release - stable versions
 #define BOARD_V10 //1.0 board version
 
 #ifdef BOARD_V10
@@ -387,9 +387,9 @@ uint32_t caseTracker = 0;
       display.print(movingAverageResult);
       display.display();
 
-			if(autoCalibrating&&(globalDiff<=0)){
-				IR_READ_DELAY+=50;
-			}
+			// if(autoCalibrating&&(globalDiff<=0)){
+			// 	IR_READ_DELAY+=50;
+			// }
 
       once6=false; //reset last washing flag
 
@@ -625,7 +625,7 @@ void IR_SENSOR_MA_ALGORITHM(){
 
   if((mainTime-adjTimeLast)>ADJ_SPD){ //Ejecuta cada ADJ_SPD milisegundos
     adjTimeLast=mainTime;
-    IR_SENSITIVITY_READ = map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,4095);
+    IR_SENSITIVITY_READ = analogRead(GLOBAL_ANALOG_IN); //map(analogRead(GLOBAL_ANALOG_IN),0,4095,0,4095);
     butStat = digitalRead(GLOBAL_BUTTON_IN);  //read GLOBAL_BUTTON_IN input button
   }
 
@@ -643,7 +643,7 @@ void IR_SENSOR_MA_ALGORITHM(){
     mAPos++; //increase moving average cell
     if(mAPos==20)mAPos=0;
 
-    movingAverageMatrix[mAPos] = globalDiff;
+    movingAverageMatrix[mAPos] = abs(globalDiff);
 
     uint16_t sumForAverage = 0;
     for(int i = 0; i < 20; i++){
@@ -692,9 +692,9 @@ int16_t pulsing(){
 	#endif //READ_CAL_DEBUG
   delayMicroseconds(IR_READ_DELAY);
 
-	uint16_t postRead;
-	postRead=analogRead(ANLG_IR_IN);
-  uint16_t difference_calc = postRead-preRead;
+	//uint16_t afterRead;
+	afterRead=analogRead(ANLG_IR_IN);
+  uint16_t difference_calc = afterRead-preRead;
 
   digitalWrite(IR_OUT, LOW);
 	#ifdef READ_CAL_DEBUG //debug routine
@@ -702,7 +702,16 @@ int16_t pulsing(){
 	#endif //READ_CAL_DEBUG
   delayMicroseconds(IR_READ_DELAY);
 
-  globalDiff=difference_calc;
+	if(difference_calc<0){//This will prevent overflow as a safety feature
+		difference_calc=difference_calc*(-1);
+	}
+
+  if(difference_calc<0){//This will prevent overflow as a safety feature
+		globalDiff=difference_calc*(-1);
+	}else{
+		globalDiff=difference_calc;
+	}
+
   return difference_calc;
 }
 
