@@ -27,7 +27,7 @@ TO-DO:
 
 #include <EEPROM.h> //EEPROM library for STM32duino
 
-String SWVERSION = "Pre - 1.0.6"; //Change on every new release - stable versions
+String SWVERSION = "Pre - 1.0.8"; //Change on every new release - stable versions
 #define BOARD_V10 //1.0 board version
 
 #ifdef BOARD_V10
@@ -53,6 +53,9 @@ String SWVERSION = "Pre - 1.0.6"; //Change on every new release - stable version
 #define RUBBING_STEP_INDICATOR PB8
 #define WASHING_STEP_INDICATOR PB9
 #define DRYING_STEP_INDICATOR PB5
+
+#define FORCE_33V PB15
+#define READ_SCREENLESS PA2
 
 //Timing values
 uint16_t MOIST_TIME = 3000; //time to wet hands
@@ -83,6 +86,8 @@ uint16_t ENDING_TIME = 5000;//time to prevent incorrect input after wash
 #define READ_DEBUG_ENABLE PB15
 #endif //DEBUG_PORT_ENABLE
 
+#define RUNNING_LED PC13
+
 
 #define ON_TIME 10000   //On time for output pin (in microseconds)
 #define RUN_SPD 350     //Per-cycle time (in microseconds)
@@ -90,7 +95,7 @@ uint16_t ENDING_TIME = 5000;//time to prevent incorrect input after wash
 #define HC_ACT_TMR 200    //define delay to read input
 
 #define TIMER_SCALE 8
-uint16_t IR_READ_DELAY = 200; //200
+uint16_t IR_READ_DELAY = 600; //200
 
 #define IR_PULSES 3
 
@@ -98,7 +103,7 @@ bool butStat=true;
 int16_t counter = 0;
 int16_t preRead = 0;
 int16_t afterRead = 0;
-int16_t IR_SENSITIVITY_READ = 1000;
+int16_t IR_SENSITIVITY_READ = 200;
 int16_t globalDiff = 0;
 int32_t timer = 0;
 int32_t nonMapTimer,nonMapIR_SENSITIVITY_READ;
@@ -234,6 +239,9 @@ void readEEPROM(){
 void setup() {
   enableDebugPorts();
 
+	pinMode(FORCE_33V,OUTPUT);
+	digitalWrite(FORCE_33V,HIGH);
+	pinMode(READ_SCREENLESS,INPUT_PULLDOWN);
   //state machine startup
   //pinMode(IR_IN,INPUT_PULLUP);
   pinMode(GLOBAL_BUTTON_IN,INPUT_PULLUP);
@@ -246,6 +254,8 @@ void setup() {
   pinMode(RUBBING_STEP_INDICATOR,OUTPUT);
   pinMode(WASHING_STEP_INDICATOR,OUTPUT);
   pinMode(DRYING_STEP_INDICATOR,OUTPUT);
+
+	pinMode(RUNNING_LED,OUTPUT);
 
 	#ifdef DEBUG_PORT_ENABLE
 	pinMode(READ_DEBUG_ENABLE,INPUT_PULLUP);
@@ -287,6 +297,9 @@ void setup() {
    // init done
    // Clear the buffer.
    delay(500);
+
+	 digitalWrite(RUNNING_LED,HIGH);
+
    display.clearDisplay();
    display.setTextSize(2);
    display.setTextColor(WHITE);
@@ -322,24 +335,45 @@ void setup() {
 
 }
 
+uint32_t runningLedTrack = 0;
+uint32_t autoCycleTrack = 0;
+bool autoCycleFlag=false;
+bool allowAutoCycle=true;
+
 void loop() {
   timeTrack = millis();
 
-	if(timeTrack-timeTrackPreviousI2C>=5000){
+	if((timeTrack-timeTrackPreviousI2C>=5000)){
 		//TWCR = 0;
 		Wire.begin();
+		//display.begin(SSD1306_SWITCHCAPVCC, 0x3C);
 		timeTrackPreviousI2C=timeTrack;
+	}
+
+	if((timeTrack-autoCycleTrack>=5000)&&(analogRead(READ_SCREENLESS)>1000)&&(allowAutoCycle)){
+		autoCycleFlag=true;
+		allowAutoCycle=false;
+		autoCycleTrack=timeTrack;
 	}
 
   if(timeTrack-timeTrackPrevious>=350){
     currentForceInState=digitalRead(GLOBAL_BUTTON_IN);
-    if((sensorDetectFlag)||((currentForceInState!=lastForceInState)&&(!currentForceInState))){
+
+		//blink a status led
+		runningLedTrack=runningLedTrack+1;
+		if(runningLedTrack%5==0)digitalWrite(RUNNING_LED,!(digitalRead(RUNNING_LED)));
+
+    if((sensorDetectFlag)||((currentForceInState!=lastForceInState)&&(!currentForceInState))||autoCycleFlag){
       Serial.println("Sequence activated");
       sensorDetectFlag=false;
+			autoCycleFlag=false;
       inhibitSensor=true;
       lastForceInState=currentForceInState; //store current state for future comparison
       sMachineStateStorage++; //increment stateMachine by 1
-      if(sMachineStateStorage>=7)sMachineStateStorage=0; //reset value if it overflows
+      if(sMachineStateStorage>=7){
+				sMachineStateStorage=0; //reset value if it overflows
+
+			}
     }else if(currentForceInState){
       lastForceInState=currentForceInState; //reset state if onbutton is not pressed
     }
@@ -362,7 +396,6 @@ uint32_t caseTracker = 0;
       //0. Wait for initial sensor trigger input
       //nothing needs to be done in this step, just wait
 
-
       //Write all outputs to LOW to ensure level
       digitalWrite(WATER_OUT,LOW);
       digitalWrite(SOAP_OUT,LOW);
@@ -384,7 +417,8 @@ uint32_t caseTracker = 0;
       display.print(IR_SENSITIVITY_READ+movingAverageResult);
       display.setCursor(85,57);
       display.print("A:");
-      display.print(movingAverageResult);
+      		display.print(movingAverageResult);
+			//display.print(analogRead(READ_SCREENLESS));
       display.display();
 
 			// if(autoCalibrating&&(globalDiff<=0)){
@@ -558,6 +592,8 @@ uint32_t caseTracker = 0;
 			}else if(stateMachineTimeTrack-endingTimer>=ENDING_TIME){
 				sMachineStateStorage=0;
 				inhibitSensor=false; //enable the sensor again
+
+				allowAutoCycle=true;
 			}
 
 			display.clearDisplay();
@@ -569,6 +605,8 @@ uint32_t caseTracker = 0;
 			caseTracker = constrain(BAR_WIDTH*(stateMachineTimeTrack-endingTimer)/(ENDING_TIME),0,BAR_WIDTH);
 			display.fillRoundRect(BARPOS_X, BARPOS_Y, caseTracker, BAR_HEIGHT, 3, WHITE); //(x,y,width,height,radius,color)
 			display.display();
+
+
 
 			break;
   }
@@ -845,4 +883,8 @@ void timerAdjustmentRoutine(){  //this function executes in the setup code, if t
 
     //eeprom write stage
   }
+}
+
+void alarmSystem(){
+
 }
