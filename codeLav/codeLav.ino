@@ -27,7 +27,7 @@ TO-DO:
 
 #include <EEPROM.h> //EEPROM library for STM32duino
 
-String SWVERSION = "Pre - 1.0.8"; //Change on every new release - stable versions
+String SWVERSION = "Pre - 1.0.9"; //Change on every new release - stable versions
 #define BOARD_V10 //1.0 board version
 
 #ifdef BOARD_V10
@@ -150,6 +150,11 @@ uint8_t mAPos = 0;
 bool firstTimeMA=true;
 bool autoCalibrating = true;
 
+uint32_t runningLedTrack = 0;
+uint32_t autoCycleTrack = 0;
+bool autoCycleFlag=false;
+bool allowAutoCycle=true;
+
 const unsigned char lisbyBMP [] PROGMEM = {
 	// 'bitmap, 128x64px
 	0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
@@ -248,6 +253,7 @@ void setup() {
   pinMode(WATER_OUT,OUTPUT);
   pinMode(SOAP_OUT,OUTPUT);
   pinMode(DRYER_OUT,OUTPUT);
+	pinMode(EXTRA_OUT,OUTPUT); //PWM for motor soft startup
 
   pinMode(SOAP_STEP_INDICATOR,OUTPUT);
   pinMode(MOIST_STEP_INDICATOR,OUTPUT);
@@ -330,15 +336,7 @@ void setup() {
    //firstEEPROMPROG(); //only activate on new microcontrollers
    readEEPROM();
 
-
-
-
 }
-
-uint32_t runningLedTrack = 0;
-uint32_t autoCycleTrack = 0;
-bool autoCycleFlag=false;
-bool allowAutoCycle=true;
 
 void loop() {
   timeTrack = millis();
@@ -383,7 +381,31 @@ void loop() {
 
   //if(!inhibitSensor)IR_SENSOR(); //this is activated only when inhibitSensor is set to false;
   if(!inhibitSensor)IR_SENSOR_MA_ALGORITHM(); //this is activated only when inhibitSensor is set to false;
+	softStart();
+}
 
+uint8_t softStart_outDir=0;
+uint16_t softStart_pwmVal = 0;
+void softStart(){
+	analogWrite(EXTRA_OUT,softStart_pwmVal);
+
+	if (softStart_outDir==0){
+		softStart_pwmVal += 100;
+		if(softStart_pwmVal>=65235){
+			softStart_pwmVal=65535;
+			softStart_outDir=2;
+		}
+
+	}else if (softStart_outDir==1){
+		softStart_pwmVal -= 100;
+		if(softStart_pwmVal<=300){
+			softStart_pwmVal=0;
+			softStart_outDir=2
+		}
+
+	}else if(softStart_outDir==2){
+		//idle
+	}
 }
 
 void stateMachine(){
@@ -490,9 +512,11 @@ uint32_t caseTracker = 0;
       if(!once3){
         once3=true; //trigger flag to prevent more executions
         digitalWrite(SOAP_OUT,HIGH); //turn on water output
+				softStart_outDir=0;
         soapTimer=stateMachineTimeTrack;//register time
       }else if(stateMachineTimeTrack-soapTimer>=SOAP_TIME){
         digitalWrite(SOAP_OUT,LOW); //turn off water output
+				softStart_outDir=1;
         sMachineStateStorage++;
       }
       //wait for next input...
