@@ -37,6 +37,7 @@ String SWVERSION = "Pre - 1.0.9"; //Change on every new release - stable version
 #define WATER_OUT PA15
 #define SOAP_OUT PB3
 #define DRYER_OUT PB4
+#define EXTRA_OUT PA1
 #endif
 #ifndef BOARD_V10
 //Washing state machine related variables
@@ -45,6 +46,7 @@ String SWVERSION = "Pre - 1.0.9"; //Change on every new release - stable version
 #define WATER_OUT PA9  //PA15 board
 #define SOAP_OUT PA10  //PB3 board
 #define DRYER_OUT PA8  //PB4 board
+#define EXTRA_OUT PA1  //
 #endif
 
 //state machine leds for each step
@@ -87,7 +89,6 @@ uint16_t ENDING_TIME = 5000;//time to prevent incorrect input after wash
 #endif //DEBUG_PORT_ENABLE
 
 #define RUNNING_LED PC13
-
 
 #define ON_TIME 10000   //On time for output pin (in microseconds)
 #define RUN_SPD 350     //Per-cycle time (in microseconds)
@@ -384,26 +385,26 @@ void loop() {
 	softStart();
 }
 
-uint8_t softStart_outDir=0;
+uint8_t softStart_outDir=2;
 uint16_t softStart_pwmVal = 0;
 void softStart(){
-	analogWrite(EXTRA_OUT,softStart_pwmVal);
+	analogWrite(EXTRA_OUT,softStart_pwmVal); //write the actual PWM value
 
-	if (softStart_outDir==0){
-		softStart_pwmVal += 100;
-		if(softStart_pwmVal>=65235){
+	if (softStart_outDir==0){ //run towards max PWM value
+		softStart_pwmVal += 200; //add to the pwm on each cycle
+		if(softStart_pwmVal>=65035){ //if value ~300 less than max, go to maximum
 			softStart_pwmVal=65535;
 			softStart_outDir=2;
 		}
 
-	}else if (softStart_outDir==1){
-		softStart_pwmVal -= 100;
-		if(softStart_pwmVal<=300){
+	}else if (softStart_outDir==1){ //run towards min PWM value
+		softStart_pwmVal -= 200; //decrease to the pwm on each cycle
+		if(softStart_pwmVal<=1000){ //if value is under 1000 go to minimum
 			softStart_pwmVal=0;
-			softStart_outDir=2
+			softStart_outDir=2;
 		}
 
-	}else if(softStart_outDir==2){
+	}else(){ //do nothing
 		//idle
 	}
 }
